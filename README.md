@@ -83,7 +83,7 @@ Now, **open the `.env` file** with a text editor and set a strong, unique `API_K
 ```env
 # .env
 API_KEY="sk-this-is-my-very-secret-and-strong-api-key"
-MODEL_CHECKSUM="07e4917a026e6f9b69992a5433d9f37c376174a2ff4389658f696e57285227ec"
+MODEL_CHECKSUM="f3bdf9cf31dee4b57ae4e455a1cb0d01b5c2c1b50d72d3112141c195506c2840"
 ```
 
 ### 3. Generate the Lockfile (Crucial First Step)

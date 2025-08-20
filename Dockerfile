@@ -56,6 +56,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code and entrypoint from builder
 COPY --from=builder --chown=appuser:appuser /app /app
 
+# Create models directory and set proper permissions BEFORE switching user
+RUN mkdir -p /app/models && chown -R appuser:appuser /app/models
+
 # Ensure entrypoint.sh has execute permissions in production stage
 RUN chmod +x /app/entrypoint.sh
 

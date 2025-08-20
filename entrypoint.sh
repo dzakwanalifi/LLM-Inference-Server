@@ -1,5 +1,10 @@
-﻿#!/bin/bash
+#!/bin/bash
 set -euo pipefail
+
+# Ensure we're running with bash
+if [ -z "$BASH_VERSION" ]; then
+    exec /bin/bash "$0" "$@"
+fi
 
 # --- Konfigurasi ---
 MODEL_DIR="/app/models"

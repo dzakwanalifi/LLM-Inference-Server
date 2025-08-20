@@ -54,16 +54,12 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code and entrypoint from builder
-COPY --from=builder --chown=appuser:appuser /app /app
+COPY --from=builder /app /app
 
-# Create models directory and set proper permissions BEFORE switching user
-RUN mkdir -p /app/models && chown -R appuser:appuser /app/models
-
-# Ensure entrypoint.sh has execute permissions in production stage
-RUN chmod +x /app/entrypoint.sh
-
-# Set ownership
-RUN chown -R appuser:appuser /app
+# Set ownership dan permissions untuk SEMUA files dan directories
+RUN chown -R appuser:appuser /app && \
+    chmod -R 755 /app && \
+    chmod +x /app/entrypoint.sh
 
 # Switch to non-root user
 USER appuser

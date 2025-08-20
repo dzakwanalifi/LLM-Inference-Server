@@ -212,7 +212,7 @@ class HealthChecker:
 
     async def run_check(self) -> Dict[str, Any]:
         # Caching sederhana untuk mencegah health check membebani server
-        if time.time() - self._last_check_time < 10: # Cek setiap 10 detik
+        if time.time() - self._last_check_time < 30: # Cek setiap 30 detik
              return {"status": "healthy" if self._is_healthy else "unhealthy"}
 
         checks = {
@@ -224,10 +224,11 @@ class HealthChecker:
             if self.llm:
                 checks["model_loaded"] = True
             
-            # Jalankan dummy inference dengan timeout 5 detik
+            # Jalankan dummy inference yang sangat sederhana dengan timeout 15 detik
+            # Gunakan prompt yang sangat pendek untuk test cepat
             await asyncio.wait_for(
-                asyncio.to_thread(self.llm, "Test", max_tokens=1), 
-                timeout=5.0
+                asyncio.to_thread(self.llm, "Hi", max_tokens=1, temperature=0.0), 
+                timeout=15.0
             )
             checks["inference_functional"] = True
             self._is_healthy = True

@@ -32,6 +32,9 @@ RUN uv pip install --system --no-cache-dir -r uv.lock
 COPY ./app ./app
 COPY ./entrypoint.sh ./entrypoint.sh
 
+# Ensure entrypoint.sh has execute permissions
+RUN chmod +x ./entrypoint.sh
+
 ################################################################################
 # --- Production Stage ---
 ################################################################################
@@ -52,6 +55,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code and entrypoint from builder
 COPY --from=builder --chown=appuser:appuser /app /app
+
+# Ensure entrypoint.sh has execute permissions in production stage
+RUN chmod +x /app/entrypoint.sh
 
 # Set ownership
 RUN chown -R appuser:appuser /app

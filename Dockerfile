@@ -1,69 +1,53 @@
 # syntax=docker/dockerfile:1.9
 # --- Base Stage ---
-# Stage ini berisi setup yang sama untuk builder dan production
-FROM python:3.11-slim-bookworm AS base
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# Install paket sistem yang dibutuhkan di KEDUA stage (production & build)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-################################################################################
-# --- Builder Stage ---
-# Stage ini hanya untuk menginstall dependensi Python
-################################################################################
-FROM base AS builder
-
-# Install build-essential HANYA di builder stage
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
-
-# Copy uv dari image resmi Astral
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Set WORKDIR
-WORKDIR /app
-
-# Copy file dependensi
-COPY pyproject.toml uv.lock ./
-
-# Install dependensi menggunakan uv dengan caching mount superior
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache-dir -r uv.lock
-
-################################################################################
-# --- Production Stage ---
-# Stage final ini adalah image yang akan kita jalankan.
-################################################################################
-FROM base AS production
-
-# Buat user non-root
-RUN groupadd -r appuser && useradd --no-log-init -r -g appuser appuser
-
-# Copy Python packages yang sudah terinstall dari builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Set WORKDIR
-WORKDIR /app
-
-# ==============================================================================
-# PERUBAHAN KRUSIAL: Lakukan semua operasi file SEBELUM beralih user.
-# Salin kode aplikasi dan entrypoint, dan langsung set kepemilikannya.
-COPY --chown=appuser:appuser ./app ./app
-COPY --chown=appuser:appuser ./entrypoint.sh ./entrypoint.sh
-
-# Berikan izin eksekusi pada entrypoint SEKARANG, saat kita masih root.
-RUN chmod +x ./entrypoint.sh
-# ==============================================================================
-
-# Ganti ke user non-root. Semua perintah setelah ini akan dijalankan sebagai appuser.
-USER appuser
-
-# Entrypoint akan dijalankan sebagai 'appuser'
-ENTRYPOINT ["./entrypoint.sh"]
-CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+    FROM python:3.11-slim-bookworm AS base
+    ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+    
+    # Install paket sistem yang dibutuhkan di KEDUA stage
+    RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        libgomp1 \
+        && rm -rf /var/lib/apt/lists/*
+    
+    ################################################################################
+    # --- Builder Stage ---
+    ################################################################################
+    FROM base AS builder
+    RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+    COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+    WORKDIR /app
+    COPY pyproject.toml uv.lock ./
+    RUN --mount=type=cache,target=/root/.cache/uv \
+        uv pip install --system --no-cache-dir -r uv.lock
+    
+    ################################################################################
+    # --- Production Stage ---
+    ################################################################################
+    FROM base AS production
+    
+    # ==============================================================================
+    # PERUBAHAN 1: Install 'gosu' untuk privilege dropping yang aman
+    RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+    # ==============================================================================
+    
+    # Buat user non-root
+    RUN groupadd -r appuser && useradd --no-log-init -r -g appuser appuser
+    
+    # Copy Python packages dari builder
+    COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+    COPY --from=builder /usr/local/bin /usr/local/bin
+    
+    WORKDIR /app
+    
+    # Copy kode aplikasi dan entrypoint
+    COPY --chown=appuser:appuser ./app ./app
+    COPY ./entrypoint.sh ./entrypoint.sh 
+    RUN chmod +x ./entrypoint.sh
+    
+    # ==============================================================================
+    # PERUBAHAN 2: HAPUS `USER appuser` dari sini.
+    # Entrypoint harus berjalan sebagai root terlebih dahulu untuk memperbaiki izin.
+    # ==============================================================================
+    
+    ENTRYPOINT ["./entrypoint.sh"]
+    CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

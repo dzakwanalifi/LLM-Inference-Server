@@ -37,9 +37,10 @@ COPY ./entrypoint.sh ./entrypoint.sh
 ################################################################################
 FROM base AS production
 
-# Install runtime dependencies
+# Install runtime dependencies including OpenMP library
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

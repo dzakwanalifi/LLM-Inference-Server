@@ -1,5 +1,5 @@
 ﻿#!/bin/bash
-set -euo pipefail # Exit on error, undefined vars, pipe failures
+set -euo pipefail
 
 # --- Konfigurasi ---
 MODEL_DIR="/app/models"
@@ -7,11 +7,10 @@ MODEL_NAME="DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"
 MODEL_PATH="$MODEL_DIR/$MODEL_NAME"
 MODEL_URL="https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"
 
-# Checksum didapat dari Hugging Face untuk verifikasi integritas file
-# MODEL_CHECKSUM akan dibaca dari environment variable
-EXPECTED_CHECKSUM="${MODEL_CHECKSUM:-}" 
+# Checksum dari environment variable
+EXPECTED_CHECKSUM="${MODEL_CHECKSUM:-}"
 
-DOWNLOAD_TIMEOUT=1800  # 30 menit
+DOWNLOAD_TIMEOUT=1800
 MAX_RETRIES=3
 
 # --- Fungsi ---
@@ -24,7 +23,7 @@ verify_checksum() {
     
     if [ -z "$EXPECTED_CHECKSUM" ]; then
         log "WARNING: MODEL_CHECKSUM environment variable not set. Skipping verification."
-        return 0 # Sukses jika checksum tidak diset
+        return 0
     fi
     
     log "Verifying checksum for $file_path..."
@@ -46,7 +45,6 @@ download_model() {
     while [ $retry_count -lt $MAX_RETRIES ]; do
         log "Download attempt #$((retry_count + 1)) of $MAX_RETRIES..."
         
-        # Download ke file sementara
         if timeout "$DOWNLOAD_TIMEOUT" wget --continue -O "${MODEL_PATH}.tmp" "$MODEL_URL"; then
             log "Download command finished. Verifying integrity..."
             if verify_checksum "${MODEL_PATH}.tmp"; then
@@ -54,10 +52,10 @@ download_model() {
                 log "Model downloaded and verified successfully."
                 return 0
             else
-                rm -f "${MODEL_PATH}.tmp" # Hapus file yang korup
+                rm -f "${MODEL_PATH}.tmp"
             fi
         else
-             log "Download command failed or timed out."
+            log "Download command failed or timed out."
         fi
 
         retry_count=$((retry_count + 1))
@@ -89,7 +87,6 @@ else
     download_model
 fi
 
-# Jika model masih tidak ada setelah semua upaya, keluar dengan error
 if [ ! -f "$MODEL_PATH" ]; then
     log "FATAL: Model file is missing and could not be downloaded. Exiting."
     exit 1

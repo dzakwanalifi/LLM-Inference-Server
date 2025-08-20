@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail # Exit on error, undefined vars, pipe failures
 
 # --- Konfigurasi ---

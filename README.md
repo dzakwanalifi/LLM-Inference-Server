@@ -26,7 +26,7 @@ A production-ready, high-performance, and secure FastAPI server for local LLM in
   - Robust startup script (`entrypoint.sh`) that automatically downloads the model with retry logic and checksum verification
   - Persistent model storage using Docker Volumes
 - **🩺 Advanced Health Monitoring**: An intelligent `/health` endpoint that performs a dummy inference to ensure the model is not just loaded, but fully functional
-- **🔧 Modern Python Tooling**: Uses `pyproject.toml` for dependency management and `uv` for lightning-fast package installation during the Docker build process
+- **🔧 Modern Python Tooling**: Uses `pyproject.toml` for dependency management and `uv.lock` for deterministic, reproducible builds with `uv` for lightning-fast package installation during the Docker build process
 
 ## 📋 Requirements
 
@@ -42,21 +42,20 @@ The project is organized to separate concerns, making it clean and maintainable.
 ```
 llm-server/
 ├── app/
-│   └── main.py              # The core FastAPI application logic
-├── models/                   # (Created on first run) Stores the downloaded GGUF model files
-├── .env                     # Local environment variables (API Key, Checksum). Ignored by Git
-├── .env.example             # Template for creating the .env file
-├── .gitignore               # Specifies files for Git to ignore
-├── Dockerfile               # Multi-stage recipe for building the secure, optimized Docker image
-├── docker-compose.yml       # Defines and orchestrates the Docker service
-├── entrypoint.sh            # Robust startup script for the container
-├── pyproject.toml           # Defines project metadata and dependencies (replaces requirements.txt)
-└── requirements.txt          # Alternative dependency file for pip users
+│   └── main.py              # The core FastAPI application logic.
+├── models/                  # (Created on first run) Stores the downloaded GGUF model files.
+├── .env                     # Local environment variables (API Key, Checksum).
+├── .env.example             # Template for creating the .env file.
+├── Dockerfile               # Advanced multi-stage recipe for the secure, optimized Docker image.
+├── docker-compose.yml       # Defines and orchestrates the Docker service.
+├── entrypoint.sh            # Robust startup script for the container.
+├── pyproject.toml           # Defines project metadata and dependencies.
+└── uv.lock                  # Lockfile for deterministic, reproducible builds.
 ```
 
-## 🚀 Getting Started (Docker - Recommended)
+## 🚀 Getting Started (Docker Required)
 
-This is the fastest and most reliable way to get the server running.
+This project is optimized for a Docker-centric workflow.
 
 ### Prerequisites
 
@@ -87,16 +86,30 @@ API_KEY="sk-this-is-my-very-secret-and-strong-api-key"
 MODEL_CHECKSUM="07e4917a026e6f9b69992a5433d9f37c376174a2ff4389658f696e57285227ec"
 ```
 
-### 3. Build and Run the Container
+### 3. Generate the Lockfile (Crucial First Step)
+This project uses `uv.lock` for fast, deterministic builds. You need to generate it locally once.
 
-Use Docker Compose to build the image and start the service.
+First, install `uv` on your local machine:
+```bash
+pip install uv
+```
+
+Then, generate the lockfile from `pyproject.toml`:
+```bash
+uv pip compile pyproject.toml -o uv.lock
+```
+*Note: You only need to re-run this command if you change the dependencies in `pyproject.toml`.*
+
+### 4. Build and Run the Container
+
+Now you are ready to build the image and start the service.
 
 ```bash
 docker-compose up --build
 ```
 
 **What to Expect on First Run:**
-- **Docker Build:** The image will be built using `uv`, which is very fast
+- **Docker Build:** The image will be built using `uv`, which is 10-100x faster than traditional pip
 - **Model Download:** The `entrypoint.sh` script will detect that the model is missing and begin downloading it (~1.1 GB). This may take several minutes depending on your internet connection. You will see progress logs
 - **Model Loading:** Once downloaded, the model will be loaded into RAM
 - **Server Ready:** You'll see logs from Gunicorn/Uvicorn indicating the server is running on `http://0.0.0.0:8000`
@@ -115,33 +128,7 @@ To stop the server:
 docker-compose down
 ```
 
-### Option 2: Local Development
 
-For developers who prefer to run the server directly on their machine.
-
-1. **Install dependencies:**
-   ```bash
-   # Using pip (traditional)
-   pip install -r requirements.txt
-   
-   # Or using uv (faster, recommended)
-   uv sync
-   ```
-
-2. **Setup environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env and set your API_KEY
-   ```
-
-3. **Run server:**
-   ```bash
-   # Using uvicorn directly
-   uvicorn app.main:app --host 0.0.0.0 --port 8000
-   
-   # Or using uv
-   uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-   ```
 
 ## 🔧 Configuration & Tuning
 
@@ -266,16 +253,17 @@ curl -X POST "http://localhost:8080/v1/chat/completions" \
 - **Error Tracking** with detailed stack traces
 - **Real-time Health Checks** with dummy inference testing
 
-## 🐳 Docker Details
+## 🐳 Docker Architecture Deep Dive
+
+The `Dockerfile` is highly optimized for both speed and security using modern best practices.
 
 ### Container Features
-
-- Multi-stage build for optimized image size
-- Automatic model download on startup with checksum verification
-- Volume mounting for model persistence
-- Health check integration
-- Non-root user execution
-- Fast dependency installation using `uv`
+-   **Advanced Multi-Stage Build**: Separates the build environment from the lean production environment, resulting in a smaller and more secure final image.
+-   **Blazing Fast Dependency Installation**: Uses `uv` instead of `pip` for 10-100x faster package installation during the build process.
+-   **Superior Layer Caching**: Leverages Docker BuildKit's `--mount=type=cache` to cache dependencies effectively. Rebuilding after a code change is nearly instantaneous.
+-   **Clean Virtual Environment**: All dependencies are installed into an isolated virtual environment inside the container, not into the global site-packages.
+-   **Security Hardened**: The final image runs the application as a **non-root user** with minimal system dependencies.
+-   **Robust Startup**: The `entrypoint.sh` script handles model downloading, verification, and retries before starting the main application.
 
 ### Build Arguments
 
@@ -404,9 +392,8 @@ For contributors who want to work on the codebase:
 git clone https://github.com/dzakwanalifi/llm-inference-server.git
 cd llm-inference-server
 
-# Install development dependencies
-pip install -r requirements.txt
-# Or use uv: uv sync --dev
+# Install development dependencies using uv
+uv sync --dev
 
 # Run tests (when implemented)
 pytest
@@ -447,7 +434,7 @@ For issues and questions:
 **A:** Yes! Change `n_gpu_layers=0` to a positive number in `app/main.py`. However, this requires CUDA-enabled llama.cpp builds.
 
 ### Q: How do I change the model?
-**A:** Update the `MODEL_URL` and `MODEL_CHECKSUM` in `entrypoint.sh`, then rebuild the container.
+**A:** Update the `MODEL_URL` and `MODEL_CHECKSUM` in `entrypoint.sh`, then rebuild the container. Remember to regenerate the `uv.lock` file if you change dependencies in `pyproject.toml`.
 
 ### Q: Is this production-ready?
 **A:** The code is production-ready, but consider additional monitoring, logging aggregation, and load balancing for high-traffic deployments.

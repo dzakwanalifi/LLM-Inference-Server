@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   llm-api:
     container_name: llm_inference_server

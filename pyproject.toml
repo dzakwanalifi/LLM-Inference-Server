@@ -4,7 +4,7 @@ name = "llm-inference-server"
 version = "0.1.0"
 description = "A production-ready FastAPI server for local LLM inference."
 authors = [
-    { name = "Your Name", email = "your@email.com" },
+    { name = "Dzakwan Alifi", email = "mdzakwanalifi@gmail.com" },
 ]
 requires-python = ">=3.11"
 
@@ -19,7 +19,11 @@ dependencies = [
     "gunicorn",
 ]
 
+# TAMBAHKAN BAGIAN INI
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [tool.uv]
 # Konfigurasi spesifik untuk uv jika diperlukan (opsional)
-# Contoh:
 # preview = true

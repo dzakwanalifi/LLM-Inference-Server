@@ -1,0 +1,25 @@
+[project]
+# Metadata dasar untuk proyek Anda
+name = "llm-inference-server"
+version = "0.1.0"
+description = "A production-ready FastAPI server for local LLM inference."
+authors = [
+    { name = "Your Name", email = "your@email.com" },
+]
+requires-python = ">=3.11"
+
+# Dependensi utama aplikasi
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "llama-cpp-python",
+    "python-dotenv",
+    "structlog",
+    "slowapi",
+    "gunicorn",
+]
+
+[tool.uv]
+# Konfigurasi spesifik untuk uv jika diperlukan (opsional)
+# Contoh:
+# preview = true

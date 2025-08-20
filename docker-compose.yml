@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  llm-api:
+    container_name: llm_inference_server
+    build: .
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./models:/app/models
+    env_file:
+      - .env
+    restart: unless-stopped

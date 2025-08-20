@@ -56,13 +56,15 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code and entrypoint from builder
 COPY --from=builder /app /app
 
-# Set ownership dan permissions untuk SEMUA files dan directories
+# Install su-exec untuk beralih user dengan mudah
+RUN apt-get update && apt-get install -y --no-install-recommends su-exec && rm -rf /var/lib/apt/lists/*
+
+# Set ownership dan permissions
 RUN chown -R appuser:appuser /app && \
     chmod -R 755 /app && \
     chmod +x /app/entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Jangan switch user di sini, biarkan entrypoint berjalan sebagai root
 WORKDIR /app
 
 # Perintah default yang akan dieksekusi oleh entrypoint

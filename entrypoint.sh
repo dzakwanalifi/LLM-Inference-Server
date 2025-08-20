@@ -75,27 +75,22 @@ download_model() {
 }
 
 # --- Eksekusi Utama ---
-log "Initializing container..."
-mkdir -p "$MODEL_DIR"
+log "Initializing container (running as root)..."
 
-if [ -f "$MODEL_PATH" ]; then
-    log "Model file found."
-    if verify_checksum "$MODEL_PATH"; then
-        log "Existing model is valid. Skipping download."
-    else
-        log "Existing model is invalid or corrupt. Re-downloading..."
-        rm -f "$MODEL_PATH"
-        download_model
-    fi
-else
+# Pastikan direktori app dimiliki oleh appuser
+chown -R appuser:appuser /app
+
+# Logika download dijalankan sebagai root karena perlu menulis ke volume
+if [ ! -f "$MODEL_PATH" ]; then
     log "Model file not found. Starting download..."
     download_model
 fi
 
 if [ ! -f "$MODEL_PATH" ]; then
-    log "FATAL: Model file is missing and could not be downloaded. Exiting."
+    log "FATAL: Model file is missing. Exiting."
     exit 1
 fi
 
-log "Initialization complete. Starting application..."
-exec "$@"
+log "Initialization complete. Dropping privileges and starting application..."
+# Gunakan su-exec untuk menjalankan CMD utama ("$@") sebagai user 'appuser'
+exec su-exec appuser "$@"

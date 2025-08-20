@@ -63,6 +63,8 @@ This project is optimized for a Docker-centric workflow.
 - [Git](https://git-scm.com/) for cloning the repository
 - A terminal or command prompt (like PowerShell or Bash)
 
+> **Note on Docker Compose:** This project is tested and optimized for **Docker Compose V2** (`docker compose`, without a hyphen). If you are using an older version (`docker-compose` V1), you may encounter unexpected errors. It is highly recommended to upgrade. You can check your version with `docker compose version`.
+
 ### 1. Clone the Repository
 
 ```bash
@@ -166,6 +168,113 @@ The number of worker processes is set in the `CMD` instruction of the `Dockerfil
 # In Dockerfile
 CMD ["gunicorn", "app.main:app", "--workers", "4", ...]
 ```
+
+## 🌐 Deploying to a Public Server
+
+To make your LLM server accessible to the public, you'll need to deploy it behind a reverse proxy like Nginx. This enhances security by handling SSL/TLS encryption and hiding your application's internal port.
+
+### Prerequisites
+- A server with a public IP address.
+- A registered domain name (e.g., `yourdomain.com`) with an **A record** pointing a subdomain (e.g., `api.yourdomain.com`) to your server's public IP.
+
+### Step 1: Configure the Firewall (UFW)
+First, secure your server by only allowing necessary traffic.
+
+```bash
+# Allow your SSH port (replace 22 with your port if different)
+sudo ufw allow 22/tcp
+
+# Allow web traffic for Nginx
+sudo ufw allow 'Nginx Full'
+
+# Enable the firewall
+sudo ufw enable
+```
+
+### Step 2: Install Nginx and Certbot
+
+Nginx will act as our reverse proxy, and Certbot will automatically handle free SSL certificates from Let's Encrypt.
+
+```bash
+sudo apt-get update
+sudo apt-get install nginx python3-certbot-nginx -y
+```
+
+### Step 3: Isolate the Application Port
+
+Modify your docker-compose.yml to ensure the application is only accessible from within the server itself (localhost), not directly from the internet.
+
+Change this line in docker-compose.yml:
+
+```yaml
+ports:
+      - "8080:8000"
+```
+
+To this:
+
+```yaml
+ports:
+      - "127.0.0.1:8000:8000"
+```
+
+Then, restart your container: `docker compose up -d --build`.
+
+### Step 4: Configure Nginx
+
+Create an Nginx configuration file to proxy requests to your Docker container.
+
+Create the file: `sudo nano /etc/nginx/sites-available/llm_api`
+
+Paste the following configuration, replacing `api.yourdomain.com` with your actual subdomain:
+
+```nginx
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the configuration and restart Nginx:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/llm_api /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### Step 5: Secure with SSL (HTTPS)
+
+Use Certbot to automatically obtain and install an SSL certificate.
+
+```bash
+sudo certbot --nginx -d api.yourdomain.com
+```
+
+Follow the on-screen instructions. Certbot will automatically update your Nginx configuration to enable HTTPS.
+
+### Step 6: Access Your Public API!
+
+Your server is now live. You can access it from any client (like Postman) using your public URL:
+`https://api.yourdomain.com/v1/chat/completions`
+
+### Deploying without a Domain (IP Address Only)
+
+If you don't have a domain, you can expose the API via your server's IP address over HTTP. **Warning: This is insecure as data (including your API Key) is not encrypted.**
+
+- **Firewall:** Allow HTTP only: `sudo ufw allow http`.
+- **Nginx Config:** Use the Nginx config from Step 4, but remove the `server_name api.yourdomain.com;` line.
+- **Access:** Use `http://<YOUR_SERVER_IP>/v1/chat/completions`.
+
+---
 
 ## 📡 API Usage
 
@@ -311,7 +420,18 @@ For production deployments, consider using tools like:
 
 ### Common Issues
 
-1. **Model not found:**
+1. **Error `KeyError: 'ContainerConfig'` during `docker compose up`:**
+   - This is often caused by an old version of `docker-compose` (V1) or a corrupted Docker cache.
+   - **Solution 1 (Recommended):** Upgrade to Docker Compose V2. See the note at the top of the "Getting Started" section.
+   - **Solution 2 (Quick Fix):** Perform a full system cleanup to remove all containers, images, and build caches, then try again. **Warning: This will delete your downloaded model.**
+     ```bash
+     docker compose down
+     docker rm -f $(docker ps -aq) 2>/dev/null || true
+     docker rmi -f $(docker images -aq) 2>/dev/null || true
+     docker system prune -af
+     ```
+
+2. **Model not found:**
    - Check if models directory is mounted correctly
    - Verify internet connection for model download
    - Check disk space
